@@ -1,11 +1,11 @@
 /* decrypt.cpp
- * Performs decryption using AES 128-bit
-
+ * Performs decryption using AES 128-bit in CBC mode
  */
 #include <iostream>
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include "structures.h"
 
 using namespace std;
@@ -145,32 +145,29 @@ int main() {
 	cout << "=============================" << endl;
 
 	// Read in the message from message.aes
-	string msgstr;
 	ifstream infile;
 	infile.open("message.aes", ios::in | ios::binary);
 
-	if (infile.is_open())
-	{
-		getline(infile, msgstr); // The first line of file is the message
-		cout << "Read in encrypted message from message.aes" << endl;
+	vector<unsigned char> data;
+	if (infile.is_open()) {
+		char byte;
+		while (infile.get(byte)) {
+			data.push_back((unsigned char)byte);
+		}
 		infile.close();
+		cout << "Read in encrypted message from message.aes" << endl;
+	} else {
+		cout << "Unable to open file";
+		return 1;
 	}
 
-	else cout << "Unable to open file";
-
-	char * msg = new char[msgstr.size()+1];
-
-	strcpy(msg, msgstr.c_str());
-
-	int n = strlen((const char*)msg);
-
-	unsigned char * encryptedMessage = new unsigned char[n];
-	for (int i = 0; i < n; i++) {
-		encryptedMessage[i] = (unsigned char)msg[i];
+	if (data.size() < 16) {
+		cout << "Invalid encrypted message file" << endl;
+		return 1;
 	}
 
-	// Free memory
-	delete[] msg;
+	vector<unsigned char> iv(data.begin(), data.begin() + 16);
+	vector<unsigned char> encryptedMessage(data.begin() + 16, data.end());
 
 	// Read in the key
 	string keystr;
@@ -200,22 +197,31 @@ int main() {
 
 	KeyExpansion(key, expandedKey);
 	
-	int messageLen = strlen((const char *)encryptedMessage);
+	vector<unsigned char> decryptedMessage(encryptedMessage.size());
+	vector<unsigned char> current_iv = iv;
 
-	unsigned char * decryptedMessage = new unsigned char[messageLen];
-
-	for (int i = 0; i < messageLen; i += 16) {
-		AESDecrypt(encryptedMessage + i, expandedKey, decryptedMessage + i);
+	for (size_t i = 0; i < encryptedMessage.size(); i += 16) {
+		vector<unsigned char> block(16);
+		AESDecrypt(encryptedMessage.data() + i, expandedKey, block.data());
+		for (int j = 0; j < 16; j++) {
+			block[j] ^= current_iv[j];
+		}
+		for (int j = 0; j < 16; j++) {
+			decryptedMessage[i + j] = block[j];
+		}
+		current_iv.assign(encryptedMessage.begin() + i, encryptedMessage.begin() + i + 16);
 	}
 
 	cout << "Decrypted message in hex:" << endl;
-	for (int i = 0; i < messageLen; i++) {
+	for (size_t i = 0; i < decryptedMessage.size(); i++) {
 		cout << hex << (int)decryptedMessage[i];
 		cout << " ";
 	}
 	cout << endl;
 	cout << "Decrypted message: ";
-	for (int i = 0; i < messageLen; i++) {
+	size_t len = decryptedMessage.size();
+	while (len > 0 && decryptedMessage[len - 1] == 0) len--;
+	for (size_t i = 0; i < len; i++) {
 		cout << decryptedMessage[i];
 	}
 	cout << endl;

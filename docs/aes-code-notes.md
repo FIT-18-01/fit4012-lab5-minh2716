@@ -1,15 +1,16 @@
-# Ghi chú cấu trúc code AES
+# Ghi chú cấu trúc code AES CBC
 
 ## 1. File `encrypt.cpp`
 
 Vai trò chính:
 
 - đọc plaintext từ bàn phím
-- pad plaintext về bội số của 16 byte
+- pad plaintext về bội số của 16 byte bằng zero padding
 - đọc khóa từ `keyfile`
+- dùng IV cố định
 - gọi `KeyExpansion`
-- mã hóa từng block 16 byte bằng AES-128
-- ghi ciphertext ra `message.aes`
+- mã hóa từng block 16 byte bằng AES-128 theo chế độ CBC
+- ghi IV + ciphertext ra `message.aes` dưới dạng binary
 
 Các hàm chính:
 
@@ -25,11 +26,11 @@ Các hàm chính:
 
 Vai trò chính:
 
-- đọc ciphertext từ `message.aes`
+- đọc IV + ciphertext từ `message.aes` dưới dạng binary
 - đọc khóa từ `keyfile`
 - gọi `KeyExpansion`
-- giải mã từng block 16 byte
-- in plaintext khôi phục
+- giải mã từng block 16 byte theo CBC
+- loại bỏ padding và in plaintext
 
 Các hàm chính:
 
@@ -52,9 +53,8 @@ Vai trò chính:
 
 ## 4. Gợi ý cải tiến cho sinh viên
 
+- Sinh IV ngẫu nhiên thay vì cố định.
 - Tách phần AES core ra `aes.h` và `aes.cpp`.
 - Tách CLI ra `main.cpp`.
-- Không dùng `strlen` với dữ liệu ciphertext binary.
-- Không ghi ciphertext bằng toán tử `<<` với con trỏ `unsigned char*`.
-- Dùng `std::vector<unsigned char>` và `ofstream::write` / `ifstream::read`.
 - Dùng PKCS#7 padding thay cho zero padding.
+- Thêm test vector chuẩn AES.

@@ -1,11 +1,12 @@
 /* encrypt.cpp
- * Performs encryption using AES 128-bit
+ * Performs encryption using AES 128-bit in CBC mode
  */
 
 #include <iostream>
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include "structures.h"
 
 using namespace std;
@@ -147,23 +148,13 @@ int main() {
 	cin.getline(message, sizeof(message));
 	cout << message << endl;
 
-	// Pad message to 16 bytes
-	int originalLen = strlen((const char *)message);
-
-	int paddedMessageLen = originalLen;
-
-	if ((paddedMessageLen % 16) != 0) {
-		paddedMessageLen = (paddedMessageLen / 16 + 1) * 16;
+	// Pad message to 16 bytes with zero padding
+	vector<unsigned char> paddedMessage;
+	for (char c : message) {
+		paddedMessage.push_back((unsigned char)c);
 	}
-
-	unsigned char * paddedMessage = new unsigned char[paddedMessageLen];
-	for (int i = 0; i < paddedMessageLen; i++) {
-		if (i >= originalLen) {
-			paddedMessage[i] = 0;
-		}
-		else {
-			paddedMessage[i] = message[i];
-		}
+	while (paddedMessage.size() % 16 != 0) {
+		paddedMessage.push_back(0);
 	}
 
 	unsigned char * encryptedMessage = new unsigned char[paddedMessageLen];
@@ -190,16 +181,30 @@ int main() {
 		i++;
 	}
 
+	// Fixed IV for CBC
+	unsigned char iv[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+
 	unsigned char expandedKey[176];
 
 	KeyExpansion(key, expandedKey);
 
-	for (int i = 0; i < paddedMessageLen; i += 16) {
-		AESEncrypt(paddedMessage+i, expandedKey, encryptedMessage+i);
+	// Encrypt in CBC mode
+	vector<unsigned char> encryptedMessage(iv, iv + 16); // Start with IV
+	vector<unsigned char> current_iv(iv, iv + 16);
+
+	for (size_t i = 0; i < paddedMessage.size(); i += 16) {
+		vector<unsigned char> block(16);
+		for (int j = 0; j < 16; j++) {
+			block[j] = paddedMessage[i + j] ^ current_iv[j];
+		}
+		vector<unsigned char> enc_block(16);
+		AESEncrypt(block.data(), expandedKey, enc_block.data());
+		encryptedMessage.insert(encryptedMessage.end(), enc_block.begin(), enc_block.end());
+		current_iv = enc_block;
 	}
 
 	cout << "Encrypted message in hex:" << endl;
-	for (int i = 0; i < paddedMessageLen; i++) {
+	for (size_t i = 16; i < encryptedMessage.size(); i++) { // Skip IV
 		cout << hex << (int) encryptedMessage[i];
 		cout << " ";
 	}
@@ -211,16 +216,12 @@ int main() {
 	outfile.open("message.aes", ios::out | ios::binary);
 	if (outfile.is_open())
 	{
-		outfile << encryptedMessage;
+		outfile.write((char*)encryptedMessage.data(), encryptedMessage.size());
 		outfile.close();
 		cout << "Wrote encrypted message to file message.aes" << endl;
 	}
 
 	else cout << "Unable to open file";
-
-	// Free memory
-	delete[] paddedMessage;
-	delete[] encryptedMessage;
 
 	return 0;
 }
