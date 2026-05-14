@@ -157,8 +157,6 @@ int main() {
 		paddedMessage.push_back(0);
 	}
 
-	unsigned char * encryptedMessage = new unsigned char[paddedMessageLen];
-
 	string str;
 	ifstream infile;
 	infile.open("keyfile", ios::in | ios::binary);
@@ -189,7 +187,7 @@ int main() {
 	KeyExpansion(key, expandedKey);
 
 	// Encrypt in CBC mode
-	vector<unsigned char> encryptedMessage(iv, iv + 16); // Start with IV
+	vector<unsigned char> encryptedMessage(iv, iv + 16); // Store IV at the beginning of the file
 	vector<unsigned char> current_iv(iv, iv + 16);
 
 	for (size_t i = 0; i < paddedMessage.size(); i += 16) {
